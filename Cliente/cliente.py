@@ -1,4 +1,5 @@
 from socket import *
+import hashlib
 import sys
 import os
 import time
@@ -22,6 +23,12 @@ def menu():
     print("3 - Sair")
     print("Digite a opção desejada: ", end="")
 
+def calcular_checksum(dados):
+    # Função para calcular um checksum usando hashlib
+    md5 = hashlib.md5()
+    md5.update(dados)
+    return md5.digest()
+
 def verifica_servidor():
     # Envia mensagem para o servidor
     clientSocketUDP.sendto("1".encode(), ADDR)
@@ -41,8 +48,17 @@ def verifica_servidor():
         print(f"Erro: {e}")
 
 def listarArquivos():
-    # Envia mensagem para o servidor
-    clientSocketUDP.sendto("LISTAR".encode(), ADDR)
+    while True:
+        # Envia mensagem para o servidor
+        mensagem = "LISTAR".encode()
+        checksum = calcular_checksum(mensagem)
+        msg_cksm = mensagem + checksum
+        clientSocketUDP.sendto(msg_cksm, ADDR)
+
+        # Recebe ACK ou NACK do servidor
+        data, _ = clientSocketUDP.recvfrom(BUFFERSIZE)
+        if data.decode() == "ACK":
+            break
 
     # Recebe resposta do servidor
     data, _ = clientSocketUDP.recvfrom(BUFFERSIZE)

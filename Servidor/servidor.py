@@ -1,6 +1,7 @@
 from socket import *
 from os import listdir
 from os.path import isfile, join
+import hashlib
 import os
 import time
 import threading
@@ -16,6 +17,12 @@ BUFFERSIZE = 1024
 serverSocketUDP = socket(AF_INET, SOCK_DGRAM)
 serverSocketUDP.bind(ADDR)
 print("Servidor iniciado!\n")
+
+def calcular_checksum(dados):
+    # Função para calcular um checksum usando hashlib
+    md5 = hashlib.md5()
+    md5.update(dados)
+    return md5.digest()
 
 # Funções
 def envia_arquivo(endereco):
@@ -38,7 +45,13 @@ def listar_arquivos(endereco):
 
 while True:
     data, endereco = serverSocketUDP.recvfrom(BUFFERSIZE)
-    opcao = data.decode()
+    mensagem, checksum_recebido = data[:-16], data[-16:]
+    if calcular_checksum(mensagem) != checksum_recebido:
+        serverSocketUDP.sendto("NACK".encode(), endereco)
+        continue
+    serverSocketUDP.sendto("ACK".encode(), endereco)
+
+    opcao = mensagem.decode()
     if opcao == "LISTAR":
         listar_arquivos(endereco)
     elif opcao == "BAIXAR":
