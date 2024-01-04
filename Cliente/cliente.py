@@ -48,11 +48,11 @@ def verifica_servidor():
         print(f"Erro: {e}")
 
 def listarArquivos():
+    # Envia mensagem para o servidor
+    mensagem = "LISTAR".encode()
+    checksum = calcular_checksum(mensagem)
+    msg_cksm = mensagem + checksum
     while True:
-        # Envia mensagem para o servidor
-        mensagem = "LISTAR".encode()
-        checksum = calcular_checksum(mensagem)
-        msg_cksm = mensagem + checksum
         clientSocketUDP.sendto(msg_cksm, ADDR)
 
         # Recebe ACK ou NACK do servidor
@@ -61,9 +61,17 @@ def listarArquivos():
             break
 
     # Recebe resposta do servidor
-    data, _ = clientSocketUDP.recvfrom(BUFFERSIZE)
+    while True:
+        data, _ = clientSocketUDP.recvfrom(BUFFERSIZE)
+        mensagem, checksum_recebido = data[:-16], data[-16:]
+        if calcular_checksum(mensagem) != checksum_recebido:
+            clientSocketUDP.sendto("NACK".encode(), ADDR)
+            continue
+        clientSocketUDP.sendto("ACK".encode(), ADDR)
+        break
+
     print("Arquivos disponíveis:")
-    print(data.decode())
+    print(mensagem.decode())
 
 def baixarArquivo():
     # Envia mensagem para o servidor

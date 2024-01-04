@@ -41,7 +41,14 @@ def envia_arquivo(endereco):
 
 def listar_arquivos(endereco):
     arquivos = arquivos = [arquivo for arquivo in listdir("./Servidor/Arquivos") if isfile(join("./Servidor/Arquivos", arquivo))]
-    serverSocketUDP.sendto(str(arquivos).encode(), endereco)
+    mensagem = str(arquivos).encode()
+    checksum = calcular_checksum(mensagem)
+    msg_cksm = mensagem + checksum
+    while True:
+        serverSocketUDP.sendto(msg_cksm, endereco)
+        data, _ = serverSocketUDP.recvfrom(BUFFERSIZE)
+        if data.decode() == "ACK":
+            break
 
 while True:
     data, endereco = serverSocketUDP.recvfrom(BUFFERSIZE)
