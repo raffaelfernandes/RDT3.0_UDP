@@ -27,17 +27,32 @@ def calcular_checksum(dados):
 # Funções
 def envia_arquivo(endereco):
     arquivos = [arquivo for arquivo in listdir("./Servidor/Arquivos") if isfile(join("./Servidor/Arquivos", arquivo))]
-    data, _ = serverSocketUDP.recvfrom(BUFFERSIZE)
-    nome_arquivo = data.decode()
+    nome_arquivo = ""
+    while True:
+        data, endereco = serverSocketUDP.recvfrom(BUFFERSIZE)
+        mensagem, checksum_recebido = data[:-16], data[-16:]
+        if calcular_checksum(mensagem) != checksum_recebido:
+            serverSocketUDP.sendto("NACK".encode(), endereco)
+            continue
+        serverSocketUDP.sendto("ACK".encode(), endereco)
+        nome_arquivo = mensagem.decode()
+        break
+
     if nome_arquivo in arquivos:
-        serverSocketUDP.sendto("ARQUIVO ENCONTRADO".encode(), endereco)
+        serverSocketUDP.sendto("ACK".encode(), endereco)
         with open(("./Servidor/Arquivos/" + nome_arquivo), "rb") as arquivo:
-            while (data := arquivo.read(BUFFERSIZE)):
-                serverSocketUDP.sendto(data, endereco)
+            while (data := arquivo.read(BUFFERSIZE-16)):
+                checksum = calcular_checksum(data)
+                msg_cksm = data + checksum
+                while True:
+                    serverSocketUDP.sendto(msg_cksm, endereco)
+                    msg, _ = serverSocketUDP.recvfrom(BUFFERSIZE)
+                    if msg.decode() == "ACK":
+                        break
         print("ARQUIVO ENVIADO")
         serverSocketUDP.sendto(b'', endereco)
     else:
-        serverSocketUDP.sendto("ARQUIVO NAO ENCONTRADO".encode(), endereco)
+        serverSocketUDP.sendto("NACK".encode(), endereco)
 
 def listar_arquivos(endereco):
     arquivos = arquivos = [arquivo for arquivo in listdir("./Servidor/Arquivos") if isfile(join("./Servidor/Arquivos", arquivo))]

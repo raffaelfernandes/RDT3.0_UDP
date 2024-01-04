@@ -74,17 +74,34 @@ def listarArquivos():
     print(mensagem.decode())
 
 def baixarArquivo():
-    # Envia mensagem para o servidor
-    clientSocketUDP.sendto("BAIXAR".encode(), ADDR)
+    mensagem = "BAIXAR".encode()
+    checksum = calcular_checksum(mensagem)
+    msg_cksm = mensagem + checksum
+    while True:
+        clientSocketUDP.sendto(msg_cksm, ADDR)
+
+        # Recebe ACK ou NACK do servidor
+        data, _ = clientSocketUDP.recvfrom(BUFFERSIZE)
+        if data.decode() == "ACK":
+            break
 
     # Envia nome do arquivo para o servidor
     nome_arquivo = input("Digite o nome do arquivo: ")
-    clientSocketUDP.sendto(nome_arquivo.encode(), ADDR)
+    mensagem = nome_arquivo.encode()
+    checksum = calcular_checksum(mensagem)
+    msg_cksm = mensagem + checksum
+    while True:
+        clientSocketUDP.sendto(msg_cksm, ADDR)
+
+        # Recebe ACK ou NACK do servidor
+        data, _ = clientSocketUDP.recvfrom(BUFFERSIZE)
+        if data.decode() == "ACK":
+            break
 
     # Recebe resposta do servidor
-    data = clientSocketUDP.recvfrom(BUFFERSIZE)
-    if data == "ARQUIVO NAO ENCONTRADO":
-        print("\n"+data.decode())
+    data, _ = clientSocketUDP.recvfrom(BUFFERSIZE)
+    if data.decode() == "NACK":
+        print("\n"+"ARQUIVO NÃO ENCONTRADO")
     else:
         # Cria arquivo
         with open(nome_arquivo, "wb") as arquivo:
@@ -93,7 +110,12 @@ def baixarArquivo():
                 data, server = clientSocketUDP.recvfrom(BUFFERSIZE)
                 if not data:
                     break
-                arquivo.write(data)
+                mensagem, checksum_recebido = data[:-16], data[-16:]
+                if calcular_checksum(mensagem) != checksum_recebido:
+                    clientSocketUDP.sendto("NACK".encode(), server)
+                    continue
+                clientSocketUDP.sendto("ACK".encode(), server)
+                arquivo.write(mensagem)
         print("\nARQUIVO RECEBIDO")
 
 while True:
