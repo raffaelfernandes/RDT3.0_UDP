@@ -18,6 +18,8 @@ serverSocketUDP = socket(AF_INET, SOCK_DGRAM)
 serverSocketUDP.bind(ADDR)
 print("Servidor iniciado!\n")
 
+usuarios = []
+
 def calcular_checksum(dados):
     # Função para calcular um checksum usando hashlib
     md5 = hashlib.md5()
@@ -30,7 +32,7 @@ def envia_arquivo(endereco):
     nome_arquivo = ""
     while True:
         data, endereco = serverSocketUDP.recvfrom(BUFFERSIZE)
-        mensagem, checksum_recebido = data[:-16], data[-16:]
+        mensagem, checksum_recebido = data[:-2], data[-2:]
         if calcular_checksum(mensagem) != checksum_recebido:
             serverSocketUDP.sendto("NACK".encode(), endereco)
             continue
@@ -67,6 +69,10 @@ def listar_arquivos(endereco):
 
 while True:
     data, endereco = serverSocketUDP.recvfrom(BUFFERSIZE)
+    endereco_ip, porta = endereco
+    if endereco_ip not in usuarios:
+        usuarios.append(endereco_ip)
+    print(usuarios)
     mensagem, checksum_recebido = data[:-16], data[-16:]
     if calcular_checksum(mensagem) != checksum_recebido:
         serverSocketUDP.sendto("NACK".encode(), endereco)

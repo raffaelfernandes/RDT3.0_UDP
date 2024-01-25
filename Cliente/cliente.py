@@ -12,8 +12,13 @@ PORT = 50000
 ADDR = (HOST, PORT)
 BUFFERSIZE = 1024
 
+# SEQ = TAM 2 BYTES
+# CHECKSUM = TAM 2 BYTES
+# CONTEÚDO = TAM (SOBRAR) BYTES
+
 # Variáveis globais
 clientSocketUDP = socket(AF_INET, SOCK_DGRAM)
+seq = False
 
 # Funções
 def menu():
@@ -47,6 +52,72 @@ def verifica_servidor():
     except Exception as e:
         print(f"Erro: {e}")
 
+def fragmentar_mensagem(mensagem, tamanho_maximo):
+    return [mensagem[i:i+tamanho_maximo] for i in range(0, len(mensagem), tamanho_maximo)]
+
+def enviar_pacote():
+    conteudo = input(" Digite o conteúdo da mensagem: ")
+    conteudo = conteudo.encode()
+
+    if len(conteudo) > BUFFERSIZE-4: # tamanho do conteudo
+        partes_da_mensagem = fragmentar_mensagem(conteudo, BUFFERSIZE-4)
+        for parte in partes_da_mensagem:
+            msg = str(seq).encode() + parte + calcular_checksum(parte)
+            while True:
+                clientSocketUDP.sendto(msg, ADDR)
+
+                data, endereco = clientSocketUDP.recvfrom(BUFFERSIZE)
+                seq, conteudo, checksum_recebido = data[:2], data[2:-2], data[-2:]
+                if(calcular_checksum(conteudo) != checksum_recebido):
+                    clientSocketUDP.sendto(msg, ADDR)
+                else:
+                    if(conteudo.decode() == "ACK"):
+                        seq = not seq
+                        break
+                    else:
+                        continue
+
+        # ENVIANDO MENSAGEM DE FINALIZAÇÃO
+        msg = str(seq).encode() + b'' + calcular_checksum(conteudo)
+        while True:
+                clientSocketUDP.sendto(msg, ADDR)
+
+                data, endereco = clientSocketUDP.recvfrom(BUFFERSIZE)
+                seq, conteudo, checksum_recebido = data[:2], data[2:-2], data[-2:]
+                if(calcular_checksum(conteudo) != checksum_recebido):
+                    clientSocketUDP.sendto(msg, ADDR)
+                else:
+                    if(conteudo.decode() == "ACK"):
+                        seq = not seq
+                        break
+                    else:
+                        continue
+
+    else:
+        msg = str(seq).encode() + conteudo + calcular_checksum(conteudo)
+        while True:
+            clientSocketUDP.sendto(msg, ADDR)
+
+            data, endereco = clientSocketUDP.recvfrom(BUFFERSIZE)
+            seq, conteudo, checksum_recebido = data[:2], data[2:-2], data[-2:]
+            if(calcular_checksum(conteudo) != checksum_recebido):
+                clientSocketUDP.sendto(msg, ADDR)
+            else:
+                if(conteudo.decode() == "ACK"):
+                    seq = not seq
+                    break
+                else:
+                    continue
+
+def receber_pacote():
+    conteudo = conteudo.encode()
+    while True:
+        data, endereco = clientSocketUDP.recvfrom(BUFFERSIZE)
+
+
+
+
+    
 def listarArquivos():
     # Envia mensagem para o servidor
     mensagem = "LISTAR".encode()
