@@ -12,6 +12,7 @@ HOST = 'localhost'
 PORT = 50000
 ADDR = (HOST, PORT)
 BUFFERSIZE = 1024
+seq = False
 
 # Variáveis globais
 serverSocketUDP = socket(AF_INET, SOCK_DGRAM)
@@ -36,6 +37,37 @@ def menu_envio():
 
 # Funções
 def envia_dados(endereco):
+    global seq
+
+    def envio_normal(dados):
+        for usuario in usuarios:
+            if usuario == endereco:
+                continue
+            serverSocketUDP.sendto('ENVIAR', usuario)
+            serverSocketUDP.sendto(dados, usuario)
+
+    def modificar_bits(mensagem, num_bits):
+        bits = list(mensagem)
+        tamanho_mensagem = len(bits)
+        for _ in range(num_bits):
+            indice_bit = random.randint(0, tamanho_mensagem - 1)
+            bits[indice_bit] = '1' if bits[indice_bit] == '0' else '0'
+        return ''.join(bits)
+    
+    def envio_perda():
+        for usuario in usuarios:
+            if usuario == endereco:
+                continue
+            serverSocketUDP.sendto('ENVIAR', usuario)
+
+    def envia_pacote_atraso(dados, tempo_atraso):
+        for usuario in usuarios:
+            if usuario == endereco:
+                continue
+            serverSocketUDP.sendto('ENVIAR', usuario)
+            time.sleep(tempo_atraso)
+            serverSocketUDP.sendto(dados, usuario)
+    
     
     ack_or_nack = True
 
@@ -66,41 +98,15 @@ def envia_dados(endereco):
         print("Enviando pacote com atraso...")
         tempo_atraso = int(input("Digite o tempo (em segundos) de atraso: "))
         envia_pacote_atraso(conteudo, tempo_atraso)
-    
-    def envio_normal(dados):
-        for usuario in usuarios:
-            if usuario == endereco:
-                continue
-            serverSocketUDP.sendto('ENVIAR', usuario)
-            serverSocketUDP.sendto(dados, usuario)
-
-    def modificar_bits(mensagem, num_bits):
-        bits = list(mensagem)
-        tamanho_mensagem = len(bits)
-        for _ in range(num_bits):
-            indice_bit = random.randint(0, tamanho_mensagem - 1)
-            bits[indice_bit] = '1' if bits[indice_bit] == '0' else '0'
-        return ''.join(bits)
-    
-    def envio_perda():
-        for usuario in usuarios:
-            if usuario == endereco:
-                continue
-            serverSocketUDP.sendto('ENVIAR', usuario)
-
-    def envia_pacote_atraso(dados, tempo_atraso):
-        for usuario in usuarios:
-            if usuario == endereco:
-                continue
-            serverSocketUDP.sendto('ENVIAR', usuario)
-            time.sleep(tempo_atraso)
-            serverSocketUDP.sendto(dados, usuario)
 
 while True:
-    data, endereco = serverSocketUDP.recvfrom(BUFFERSIZE)
-    if endereco not in usuarios:
-        usuarios.append(endereco)
+    data, tupla = serverSocketUDP.recvfrom(BUFFERSIZE)
+    end_envio, porta_envio = tupla
+    if ((end_envio, porta_envio+1)) not in usuarios:
+        usuarios.append((end_envio, porta_envio+1))
     print(usuarios)
+
+    endereco = (end_envio, porta_envio + 1)
     
     opcao = data.decode()
     if opcao == "ENVIAR":

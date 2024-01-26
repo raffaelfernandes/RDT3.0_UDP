@@ -8,7 +8,7 @@ import random
 
 # Constantes
 HOST = 'localhost'
-PORT = 50000
+PORT = 51000
 ADDR = (HOST, PORT)
 BUFFERSIZE = 1024
 
