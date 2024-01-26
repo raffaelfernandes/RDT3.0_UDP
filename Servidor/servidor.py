@@ -26,64 +26,77 @@ def calcular_checksum(dados):
     md5.update(dados)
     return md5.digest()
 
+def menu_envio():
+    print("\n"+"-"*20 + "MENU" + "-"*20+'\n')
+    print("1 - Enviar pacote sem alterações")
+    print("2 - Modificar pacote")
+    print("3 - Causar perda do pacote")
+    print("4 - Enviar pacote com atraso")
+    print("Digite a opção desejada: ", end="")
+
 # Funções
-def envia_arquivo(endereco):
-    arquivos = [arquivo for arquivo in listdir("./Servidor/Arquivos") if isfile(join("./Servidor/Arquivos", arquivo))]
-    nome_arquivo = ""
-    while True:
-        data, endereco = serverSocketUDP.recvfrom(BUFFERSIZE)
-        mensagem, checksum_recebido = data[:-2], data[-2:]
-        if calcular_checksum(mensagem) != checksum_recebido:
-            serverSocketUDP.sendto("NACK".encode(), endereco)
-            continue
-        serverSocketUDP.sendto("ACK".encode(), endereco)
-        nome_arquivo = mensagem.decode()
-        break
+def envia_dados(endereco):
+    
+    dados, _ = serverSocketUDP.recvfrom(BUFFERSIZE)
+    seq_num, conteudo, checksum = dados[:2], dados[2:-2], dados[-2:]
 
-    if nome_arquivo in arquivos:
-        serverSocketUDP.sendto("ACK".encode(), endereco)
-        with open(("./Servidor/Arquivos/" + nome_arquivo), "rb") as arquivo:
-            while (data := arquivo.read(BUFFERSIZE-16)):
-                checksum = calcular_checksum(data)
-                msg_cksm = data + checksum
-                while True:
-                    serverSocketUDP.sendto(msg_cksm, endereco)
-                    msg, _ = serverSocketUDP.recvfrom(BUFFERSIZE)
-                    if msg.decode() == "ACK":
-                        break
-        print("ARQUIVO ENVIADO")
-        serverSocketUDP.sendto(b'', endereco)
-    else:
-        serverSocketUDP.sendto("NACK".encode(), endereco)
+    menu_envio()
+    opcao = input()
+    if opcao == "1":
+        print("Enviando pacote sem alterações...")
+        envio_normal(dados)
+    elif opcao == "2":
+        print("Modificando pacote...")
+        num_bits = int(input("Digite a quantidade de bits a serem modificados: "))
+        novo_conteudo = modificar_bits(conteudo, num_bits)
+        nova_msg = seq_num + novo_conteudo + checksum
+        envio_normal(nova_msg)
+    elif opcao == "3":
+        print("Causando perda do pacote...")
+        envio_perda()
+    elif opcao == "4":
+        print("Enviando pacote com atraso...")
+        tempo_atraso = int(input("Digite o tempo (em segundos) de atraso: "))
+        envia_pacote_atraso(conteudo, tempo_atraso)
+    
+    def envio_normal(dados):
+        for usuario in usuarios:
+            if usuario == endereco:
+                continue
+            serverSocketUDP.sendto('ENVIAR', usuario)
+            serverSocketUDP.sendto(dados, usuario)
 
-def listar_arquivos(endereco):
-    arquivos = arquivos = [arquivo for arquivo in listdir("./Servidor/Arquivos") if isfile(join("./Servidor/Arquivos", arquivo))]
-    mensagem = str(arquivos).encode()
-    checksum = calcular_checksum(mensagem)
-    msg_cksm = mensagem + checksum
-    while True:
-        serverSocketUDP.sendto(msg_cksm, endereco)
-        data, _ = serverSocketUDP.recvfrom(BUFFERSIZE)
-        if data.decode() == "ACK":
-            break
+    def modificar_bits(mensagem, num_bits):
+        bits = list(mensagem)
+        tamanho_mensagem = len(bits)
+        for _ in range(num_bits):
+            indice_bit = random.randint(0, tamanho_mensagem - 1)
+            bits[indice_bit] = '1' if bits[indice_bit] == '0' else '0'
+        return ''.join(bits)
+    
+    def envio_perda():
+        for usuario in usuarios:
+            if usuario == endereco:
+                continue
+            serverSocketUDP.sendto('ENVIAR', usuario)
+
+    def envia_pacote_atraso(dados, tempo_atraso):
+        for usuario in usuarios:
+            if usuario == endereco:
+                continue
+            serverSocketUDP.sendto('ENVIAR', usuario)
+            time.sleep(tempo_atraso)
+            serverSocketUDP.sendto(dados, usuario)
 
 while True:
     data, endereco = serverSocketUDP.recvfrom(BUFFERSIZE)
-    endereco_ip, porta = endereco
-    if endereco_ip not in usuarios:
-        usuarios.append(endereco_ip)
+    if endereco not in usuarios:
+        usuarios.append(endereco)
     print(usuarios)
-    mensagem, checksum_recebido = data[:-16], data[-16:]
-    if calcular_checksum(mensagem) != checksum_recebido:
-        serverSocketUDP.sendto("NACK".encode(), endereco)
-        continue
-    serverSocketUDP.sendto("ACK".encode(), endereco)
-
-    opcao = mensagem.decode()
-    if opcao == "LISTAR":
-        listar_arquivos(endereco)
-    elif opcao == "BAIXAR":
-        envia_arquivo(endereco)
+    
+    opcao = data.decode()
+    if opcao == "ENVIAR":
+        envia_dados(endereco)
     elif opcao == "3":
         print("Saindo...")
         break
