@@ -63,7 +63,7 @@ def enviar_pacote():
         clientSocketUDP.sendto(msg, ADDR)
 
         data, endereco = clientSocketUDP.recvfrom(BUFFERSIZE)
-        seq, conteudo, checksum_recebido = data[:2], data[2:-2], data[-2:]
+        conteudo, checksum_recebido = data[:-2], data[-2:]
         if(calcular_checksum(conteudo) != checksum_recebido) or conteudo.decode() != "NACK":
             clientSocketUDP.sendto(msg, ADDR)
         else:
@@ -74,7 +74,7 @@ def enviar_pacote():
                 continue
 
 def receber_dados():
-    data, endereco = clientSocketUDP.recvfrom(BUFFERSIZE)
+    data, _ = clientSocketUDP.recvfrom(BUFFERSIZE)
     seq_pct, conteudo, checksum_recebido = data[:2], data[2:-2], data[-2:]
 
     if(calcular_checksum(conteudo) != checksum_recebido):

@@ -37,8 +37,13 @@ def menu_envio():
 # Funções
 def envia_dados(endereco):
     
+    ack_or_nack = True
+
     dados, _ = serverSocketUDP.recvfrom(BUFFERSIZE)
-    seq_num, conteudo, checksum = dados[:2], dados[2:-2], dados[-2:]
+    conteudo, checksum = dados[:-2], dados[-2:]
+    if (conteudo != 'ACK' and conteudo != 'NAK'):
+        seq_num, conteudo, checksum = dados[:2], dados[2:-2], dados[-2:]
+        ack_or_nack = False
 
     menu_envio()
     opcao = input()
@@ -49,7 +54,10 @@ def envia_dados(endereco):
         print("Modificando pacote...")
         num_bits = int(input("Digite a quantidade de bits a serem modificados: "))
         novo_conteudo = modificar_bits(conteudo, num_bits)
-        nova_msg = seq_num + novo_conteudo + checksum
+        if ack_or_nack:
+            nova_msg = novo_conteudo + checksum
+        else:
+            nova_msg = seq_num + novo_conteudo + checksum
         envio_normal(nova_msg)
     elif opcao == "3":
         print("Causando perda do pacote...")
