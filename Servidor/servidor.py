@@ -89,6 +89,11 @@ def envia_dados(endereco):
         seq_num, conteudo, checksum = data_packet.unpack(dados)
         ack_or_nack = False
 
+    if ack_or_nack:
+        print(f"\nConteúdo: {conteudo.decode('utf-8')}\n")
+    else:
+        print(f"\nConteúdo: {conteudo.decode('utf-8')}\n")
+
     menu_envio()
     opcao = input()
     if opcao == "1":

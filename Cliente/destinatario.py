@@ -120,14 +120,13 @@ def receber_dados():
 
 def escutar_porta(porta):
     global clienteConexao
-    global new_menu
     clienteConexao = socket(AF_INET, SOCK_DGRAM)
     clienteConexao.bind(('localhost', porta))
     while True:
         dados, endereco = clienteConexao.recvfrom(1024)
         if dados.decode() == "ENVIAR":
             receber_dados()
-            interface()
+            #interface()
         if dados.decode() == "CONN":
             print("Conectado ao servidor!")
         continue
