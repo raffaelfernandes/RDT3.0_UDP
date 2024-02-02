@@ -28,7 +28,6 @@ clientSocketUDP = socket(AF_INET, SOCK_DGRAM)
 clientSocketUDP.bind(('localhost', PORT_ENVIO))
 global clienteConexao
 global socket_conectado
-global newMenu
 # Definindo variável seq global:
 seq = False
 new_menu = True
