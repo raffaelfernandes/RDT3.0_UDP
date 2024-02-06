@@ -15,6 +15,7 @@ PORT_ESCUTA = PORT_ENVIO + 1
 PORT = 52000
 ADDR = (HOST, PORT)
 BUFFERSIZE = 1024
+timeout = 25
 
 # ENVIA NA PORTA 50000
 # ESCUTA NA PORTA 50001
@@ -31,6 +32,9 @@ global socket_conectado
 # Definindo variável seq global:
 seq = False
 new_menu = True
+timer = None
+temporizador_estourou = False
+comunicacao = False
 
 # Funções
 def menu():
@@ -45,9 +49,6 @@ def calcular_checksum(dados):
     md5 = hashlib.md5()
     md5.update(dados)
     return md5.hexdigest()
-
-timer = None
-temporizador_estourou = False
 
 def verifica_servidor():
     # Envia mensagem para o servidor
@@ -87,23 +88,48 @@ def enviar_pacote():
 
     clientSocketUDP.sendto(pacote, ADDR)
     receber_ack(pacote)
+
+def timeout_timer(timeout, pacote):
+    global temporizador_estourou
+    global comunicacao
+
+    while comunicacao == False:
+        temporizador_estourou = False
+        time.sleep(timeout)
+        if comunicacao:
+            break
+        temporizador_estourou = True
+        clientSocketUDP.sendto("ENVIAR".encode(), ADDR)
+        clientSocketUDP.sendto(pacote, ADDR)
+    
+    return
+
+global stop_event
+
+def start_timer(timeout, pacote):
+    global timer
+    global temporizador_estourou
+    timer = threading.Thread(target=timeout_timer, args=(timeout, pacote))
+    timer.start()
         
 def receber_ack(pacote):
     global socket_conectado
     global seq
+    global comunicacao
+    global timer
+
     socket_conectado = socket(AF_INET, SOCK_DGRAM)
     socket_conectado.bind(('localhost', PORT_ESCUTA))
+
+    comunicacao = False
+    start_timer(timeout, pacote)
 
     while True:
         dados, _ = socket_conectado.recvfrom(BUFFERSIZE)
         if (dados == "ENVIAR".encode()):
-            while True:
-                dados, endereco = socket_conectado.recvfrom(BUFFERSIZE)
-                if (dados == "ENVIAR".encode()):
-                    continue
-                else:
-                    break
-            
+            dados, _ = socket_conectado.recvfrom(BUFFERSIZE)
+            if(dados == "ENVIAR".encode()):
+                continue
             clientUnpacker = Struct('I 1004s 16s')
             if seq:
                 seq_num = 1
@@ -111,28 +137,27 @@ def receber_ack(pacote):
                 seq_num = 0
             seq_ack, conteudo, checksum_recebido = clientUnpacker.unpack(dados)
             if(bytes.fromhex(calcular_checksum(conteudo.rstrip(b'\x00'))) != checksum_recebido) or seq_ack != seq_num:
-                clientSocketUDP.sendto("ENVIAR".encode(), ADDR)
-                clientSocketUDP.sendto(pacote, ADDR)
+                pass
             else:
                 seq = not seq
                 print(f'\n ACK para {seq_num} Recebido!')
+                comunicacao = True
+                break
+        else:
+            clientUnpacker = Struct('I 1004s 16s')
+            if seq:
+                seq_num = 1
+            else:
+                seq_num = 0
+            seq_ack, conteudo, checksum_recebido = clientUnpacker.unpack(dados)
+            if(bytes.fromhex(calcular_checksum(conteudo.rstrip(b'\x00'))) != checksum_recebido) or seq_ack != seq_num:
+                pass
+            else:
+                seq = not seq
+                print(f'\n ACK para {seq_num} Recebido!')
+                comunicacao = True
                 break
 
-'''
-def escutar_porta(porta):
-    global clienteConexao
-    global new_menu
-    clienteConexao = socket(AF_INET, SOCK_DGRAM)
-    clienteConexao.bind(('localhost', porta))
-    while True:
-        dados, endereco = clienteConexao.recvfrom(1024)
-        if dados.decode() == "CONN":
-            print("Conectado ao servidor!")
-        continue
-
-thread_escuta = threading.Thread(target=escutar_porta, args=(PORT_ESCUTA,))
-thread_escuta.start()
-'''
 
 def interface():
     menu()

@@ -33,7 +33,6 @@ def menu_envio():
     print("1 - Enviar pacote sem alterações")
     print("2 - Modificar pacote")
     print("3 - Causar perda do pacote")
-    print("4 - Enviar pacote com atraso")
     print("Digite a opção desejada: ", end="")
 
 # Funções
@@ -61,16 +60,9 @@ def envia_dados(endereco):
             if usuario == endereco:
                 continue
             else:
-                pass
+                serverSocketUDP.sendto('ENVIAR'.encode(), usuario)
 
-    def envia_pacote_atraso(dados, tempo_atraso):
-        for usuario in usuarios:
-            if usuario == endereco:
-                continue
-            serverSocketUDP.sendto('ENVIAR'.encode(), usuario)
-            time.sleep(tempo_atraso)
-            serverSocketUDP.sendto(dados, usuario)
-    
+
     dados, _ = serverSocketUDP.recvfrom(BUFFERSIZE)
     data_packet = Struct('I 1004s 16s')
     seq_num, conteudo, checksum = data_packet.unpack(dados)
@@ -94,10 +86,6 @@ def envia_dados(endereco):
     elif opcao == "3":
         print("Causando perda do pacote...")
         envio_perda()
-    elif opcao == "4":
-        print("Enviando pacote com atraso...")
-        tempo_atraso = int(input("Digite o tempo (em segundos) de atraso: "))
-        envia_pacote_atraso(conteudo, tempo_atraso)
 
 while True:
     data, tupla = serverSocketUDP.recvfrom(BUFFERSIZE)

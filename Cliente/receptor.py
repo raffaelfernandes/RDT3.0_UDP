@@ -67,6 +67,8 @@ def receber_dados():
     global seq
     global clienteConexao
     data, _ = clienteConexao.recvfrom(BUFFERSIZE)
+    if (data == "ENVIAR".encode()):
+        return
     clientUnpacker = Struct('I 1004s 16s')
     seq_pct, conteudo, checksum_recebido = clientUnpacker.unpack(data)
 
@@ -106,10 +108,10 @@ def escutar_porta(porta):
     clienteConexao.bind(('localhost', porta))
     while True:
         dados, endereco = clienteConexao.recvfrom(1024)
-        if dados.decode() == "ENVIAR":
+        if dados == "ENVIAR".encode():
             receber_dados()
             #interface()
-        if dados.decode() == "CONN":
+        if dados == "CONN".encode():
             print("Conectado ao servidor!")
         continue
 
