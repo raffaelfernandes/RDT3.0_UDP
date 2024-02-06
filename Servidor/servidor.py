@@ -40,15 +40,10 @@ def menu_envio():
 def envia_dados(endereco):
     global seq
 
-    def envio_normal(dados, ack_or_nack):
+    def envio_normal(dados):
         for usuario in usuarios:
             if usuario == endereco:
                 continue
-            if ack_or_nack:
-                end, porta = usuario
-                usuario = (end, porta + 1)
-                serverSocketUDP.sendto("ENVIAR".encode(), usuario)
-                serverSocketUDP.sendto(dados, usuario)
             else:
                 serverSocketUDP.sendto("ENVIAR".encode(), usuario)
                 serverSocketUDP.sendto(dados, usuario)
@@ -65,7 +60,8 @@ def envia_dados(endereco):
         for usuario in usuarios:
             if usuario == endereco:
                 continue
-            serverSocketUDP.sendto('ENVIAR'.encode(), usuario)
+            else:
+                pass
 
     def envia_pacote_atraso(dados, tempo_atraso):
         for usuario in usuarios:
@@ -75,40 +71,26 @@ def envia_dados(endereco):
             time.sleep(tempo_atraso)
             serverSocketUDP.sendto(dados, usuario)
     
-    
-    ack_or_nack = True
-
     dados, _ = serverSocketUDP.recvfrom(BUFFERSIZE)
-    ACK_NACK_packer = Struct('1008s 16s')
-    conteudo, checksum = ACK_NACK_packer.unpack(dados)
-    conteudo = conteudo.rstrip(b'\x00')
-    ACK = b'ACK'
-    NACK = b'NACK'
-    if not (conteudo == ACK or conteudo == NACK):
-        data_packet = Struct('I 1004s 16s')
-        seq_num, conteudo, checksum = data_packet.unpack(dados)
-        ack_or_nack = False
+    data_packet = Struct('I 1004s 16s')
+    seq_num, conteudo, checksum = data_packet.unpack(dados)
 
-    if ack_or_nack:
-        print(f"\nConteúdo: {conteudo.decode('utf-8')}\n")
-    else:
-        print(f"\nConteúdo: {conteudo.decode('utf-8')}\n")
+    print(f"\nConteúdo: {conteudo.decode('utf-8')}\n")
+    print(f"Número de Seq = {seq_num}\n")
+    
 
     menu_envio()
     opcao = input()
     if opcao == "1":
         print("Enviando pacote sem alterações...")
-        envio_normal(dados, ack_or_nack)
+        envio_normal(dados)
         print("Pacote Enviado!")
     elif opcao == "2":
         print("Modificando pacote...")
         num_bits = int(input("Digite a quantidade de bits a serem modificados: "))
         novo_conteudo = modificar_bits(conteudo, num_bits)
-        if ack_or_nack:
-            nova_msg = ACK_NACK_packer.pack(novo_conteudo.encode(), checksum)
-        else:
-            nova_msg = data_packet.pack(seq_num, novo_conteudo.encode(), checksum)
-        envio_normal(nova_msg, ack_or_nack)
+        nova_msg = data_packet.pack(seq_num, novo_conteudo.encode(), checksum)
+        envio_normal(nova_msg)
     elif opcao == "3":
         print("Causando perda do pacote...")
         envio_perda()

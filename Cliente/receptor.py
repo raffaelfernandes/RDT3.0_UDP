@@ -63,25 +63,6 @@ def verifica_servidor():
     except Exception as e:
         print(f"Erro: {e}")
 
-def receber_ack_ou_nack(pacote):
-    global socket_conectado
-    global seq
-    socket_conectado = socket(AF_INET, SOCK_DGRAM)
-    socket_conectado.bind(('localhost', PORT_CONECTADO))
-    dados, _ = socket_conectado.recvfrom(BUFFERSIZE)
-    if (dados == "ENVIAR".encode()):
-        dados, endereco = socket_conectado.recvfrom(BUFFERSIZE)
-        clientUnpacker = Struct('1008s 16s')
-        conteudo, checksum_recebido = clientUnpacker.unpack(dados)
-        if(calcular_checksum(conteudo) != checksum_recebido) or conteudo.rstrip(b'\x00') == "NACK".encode():
-            clientSocketUDP.sendto(pacote, ADDR)
-        else:
-            if(conteudo.rstrip(b'\x00') == "ACK".encode()):
-                seq = not seq
-                return 1
-            return 0
-
-
 def receber_dados():
     global seq
     global clienteConexao
@@ -91,31 +72,33 @@ def receber_dados():
 
     seq_num = 1 if seq else 0
 
-    ACK_NACK_packer = Struct('1008s 16s')
-    ACK = ACK_NACK_packer.pack('ACK'.encode(), bytes.fromhex(calcular_checksum('ACK'.encode())))
-    NACK = ACK_NACK_packer.pack('NACK'.encode(), bytes.fromhex(calcular_checksum('NACK'.encode())))
+    ACK_packer = Struct('I 1004s 16s')
+    ACK = ACK_packer.pack(seq_num, 'ACK'.encode(), bytes.fromhex(calcular_checksum('ACK'.encode())))
+    #NACK = ACK_NACK_packer.pack('NACK'.encode(), bytes.fromhex(calcular_checksum('NACK'.encode())))
 
     checksum_calculado = bytes.fromhex(calcular_checksum(conteudo.rstrip(b'\x00')))
 
     #cksm_pack = Struct('16s')
     #cksm_pack.pack(checksum_calculado)
-
-    if(checksum_calculado != checksum_recebido):
-        print("\nALERTA: A mensagem está corrompida. Aguardando reenvio...")
-        clientSocketUDP.sendto("ENVIAR".encode(), ADDR)
-        clientSocketUDP.sendto(NACK, ADDR)
-    else:
-        if seq_pct != seq_num:
-            clientSocketUDP.sendto("ENVIAR".encode(), ADDR)
-            clientSocketUDP.sendto(ACK, ADDR)
+    if(checksum_calculado != checksum_recebido or seq_num != seq_pct):
+        if seq_num == 1:
+            seq_num = 0
         else:
-            clientSocketUDP.sendto("ENVIAR".encode(), ADDR)
-            clientSocketUDP.sendto(ACK, ADDR)
-            seq = not seq
-            conteudo = conteudo.rstrip(b'\x00')
-            print(f"\n\nConteúdo recebido: {conteudo.decode('utf-8')}")
-            print()
-            return
+            seq_num = 1
+        print("\nALERTA: A mensagem está corrompida ou duplicada. Aguardando reenvio...")
+        print(f"Enviando ACK para {seq_num}...")
+    else:
+        seq = not seq
+        print(f"\nA mensagem está OK! Enviando ACK para {seq_num}...")
+        conteudo = conteudo.rstrip(b'\x00')
+        print(f"\n\nConteúdo recebido: {conteudo.decode('utf-8')}")
+        print()
+    
+    ACK = ACK_packer.pack(seq_num, 'ACK'.encode(), bytes.fromhex(calcular_checksum('ACK'.encode())))
+    clientSocketUDP.sendto("ENVIAR".encode(), ADDR)
+    clientSocketUDP.sendto(ACK, ADDR)
+    
+    return
 
 def escutar_porta(porta):
     global clienteConexao
